@@ -3,6 +3,7 @@ package confluence
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -24,6 +25,9 @@ var (
 
 	// PageTypeBlog blog
 	PageTypeBlog PageType = "blog"
+
+	// ErrInvalidArguments 入力値が不正の時
+	ErrInvalidArguments = errors.New("入力値が不正です")
 )
 
 // Client コンフルアクセス用クライアント
@@ -137,6 +141,38 @@ func (t *Client) AddAttachments(pageID string, files []string) (*http.Response, 
 			return nil, err
 		}
 		io.Copy(fw, fh)
+	}
+	w.Close()
+
+	targetURL := t.baseURL + "/content/" + pageID + "/child/attachment"
+	resp, err := t.httpClient.DoRequest(
+		http.MethodPost,
+		targetURL,
+		&buf,
+		map[string]string{
+			network.ContentType: w.FormDataContentType(),
+			"X-Atlassian-Token": "no-check",
+		},
+	)
+	return resp, err
+}
+
+// AddAttachmentsByIO readerとそれに応じたfilenamesを使って書き込む
+// len(readers) != len(filenames) の時は ErrInvalidArgumentsを返す
+func (t *Client) AddAttachmentsByIO(pageID string, readers []io.Reader, filenames []string) (*http.Response, error) {
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+
+	if len(readers) != len(filenames) {
+		return nil, ErrInvalidArguments
+	}
+
+	for i, reader := range readers {
+		fw, err := w.CreateFormFile("file", filenames[i])
+		if err != nil {
+			return nil, err
+		}
+		io.Copy(fw, reader)
 	}
 	w.Close()
 
