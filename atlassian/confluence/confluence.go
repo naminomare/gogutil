@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/naminomare/gogutil/fileio"
+
 	"github.com/naminomare/gogutil/network"
 )
 
@@ -136,7 +138,7 @@ func (t *Client) AddAttachments(pageID string, files []string) (*http.Response, 
 		}
 		defer fh.Close()
 
-		fw, err := w.CreateFormFile("file", file)
+		fw, err := w.CreateFormFile("file", fileio.FileName(file))
 		if err != nil {
 			return nil, err
 		}
@@ -168,7 +170,7 @@ func (t *Client) AddAttachmentsByIO(pageID string, readers []io.Reader, filename
 	}
 
 	for i, reader := range readers {
-		fw, err := w.CreateFormFile("file", filenames[i])
+		fw, err := w.CreateFormFile("file", fileio.FileName(filenames[i]))
 		if err != nil {
 			return nil, err
 		}
