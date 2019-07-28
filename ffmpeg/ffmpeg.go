@@ -50,6 +50,7 @@ func (t *Client) PictOutput(
 	// rateが1秒当たりの画像枚数なので、endtime時間でわかる
 	// expectedOutputFilesNum := int(rate * float64(endtime))
 	os.MkdirAll(outputDirectory, os.ModePerm)
+	t.outputDirectory = outputDirectory
 
 	cmd := exec.Command(
 		t.exePath,
