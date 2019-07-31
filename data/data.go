@@ -29,3 +29,14 @@ func GetEqualLastIndexOf(from []interface{}, val interface{}) int {
 	}
 	return -1
 }
+
+// BetweenUInt32 min <= target <= max を確認する
+func BetweenUInt32(min, target, max uint32) bool {
+	if target < min {
+		return false
+	}
+	if max < target {
+		return false
+	}
+	return true
+}
