@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -197,7 +196,6 @@ func (t *Client) AddAttachmentsByIO(pageID string, readers []io.Reader, filename
 // MoveAttachment pageIDのattachmentIDのattachmentをdstPageIDへ
 func (t *Client) MoveAttachment(pageID, attachmentID, dstPageID string) (*http.Response, error) {
 	targetURL := t.baseURL + "/rest/api/content/" + pageID + "/child/attachment/" + attachmentID
-	fmt.Println(targetURL)
 	jsonObj := map[string]interface{}{
 		"id":     attachmentID,
 		"type":   "attachment",
@@ -221,6 +219,23 @@ func (t *Client) MoveAttachment(pageID, attachmentID, dstPageID string) (*http.R
 		},
 	)
 	return resp, err
+}
+
+// MoveAttachmentsFromPage fromPageIDに添付されているファイルをdstPageIDに移す
+func (t *Client) MoveAttachmentsFromPage(fromPageID, dstPageID string) ([]*http.Response, error) {
+	metadata, err := t.FetchAttachmentMetaData(fromPageID)
+	if err != nil {
+		return nil, err
+	}
+	var ret []*http.Response
+	for _, v := range metadata.Results {
+		resp, err := t.MoveAttachment(fromPageID, v.ID, dstPageID)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, resp)
+	}
+	return ret, nil
 }
 
 // FetchAttachmentMetaData pageIDに添付されたファイルのデータを取得する
