@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 
 	"github.com/naminomare/gogutil/fileio"
 
@@ -61,7 +64,7 @@ func (t *Client) CreateContent(
 	content string,
 	pagetype PageType,
 ) (*http.Response, error) {
-	targetURL := t.baseURL + "/content"
+	targetURL := t.baseURL + "/rest/api/content"
 	postMap := map[string]interface{}{
 		"type":  pagetype,
 		"title": title,
@@ -96,7 +99,7 @@ func (t *Client) CreateContent(
 func (t *Client) FetchPage(
 	query map[string]string,
 ) (*http.Response, error) {
-	targetURL := t.baseURL + "/content"
+	targetURL := t.baseURL + "/rest/api/content"
 	qStr := ""
 	for k, v := range query {
 		qStr += url.QueryEscape(k) + "=" + url.QueryEscape(v)
@@ -116,7 +119,7 @@ func (t *Client) FetchPage(
 
 // FetchPageByID IDでページを取得
 func (t *Client) FetchPageByID(ID string) (*http.Response, error) {
-	targetURL := t.baseURL + "/content/" + ID
+	targetURL := t.baseURL + "/rest/api/content/" + ID
 	resp, err := t.httpClient.DoRequest(
 		http.MethodGet,
 		targetURL,
@@ -146,7 +149,7 @@ func (t *Client) AddAttachments(pageID string, files []string) (*http.Response, 
 	}
 	w.Close()
 
-	targetURL := t.baseURL + "/content/" + pageID + "/child/attachment"
+	targetURL := t.baseURL + "/rest/api/content/" + pageID + "/child/attachment"
 	resp, err := t.httpClient.DoRequest(
 		http.MethodPost,
 		targetURL,
@@ -178,7 +181,7 @@ func (t *Client) AddAttachmentsByIO(pageID string, readers []io.Reader, filename
 	}
 	w.Close()
 
-	targetURL := t.baseURL + "/content/" + pageID + "/child/attachment"
+	targetURL := t.baseURL + "/rest/api/content/" + pageID + "/child/attachment"
 	resp, err := t.httpClient.DoRequest(
 		http.MethodPost,
 		targetURL,
@@ -189,6 +192,101 @@ func (t *Client) AddAttachmentsByIO(pageID string, readers []io.Reader, filename
 		},
 	)
 	return resp, err
+}
+
+// MoveAttachment pageIDのattachmentIDのattachmentをdstPageIDへ
+func (t *Client) MoveAttachment(pageID, attachmentID, dstPageID string) (*http.Response, error) {
+	targetURL := t.baseURL + "/rest/api/content/" + pageID + "/child/attachment/" + attachmentID
+	fmt.Println(targetURL)
+	jsonObj := map[string]interface{}{
+		"id":     attachmentID,
+		"type":   "attachment",
+		"status": "current",
+		"version": map[string]interface{}{
+			"number": 1,
+		},
+		"container": map[string]string{
+			"id":   dstPageID,
+			"type": "attachment",
+		},
+	}
+	reader := toJSONReader(jsonObj)
+	resp, err := t.httpClient.DoRequest(
+		http.MethodPut,
+		targetURL,
+		reader,
+		map[string]string{
+			network.ContentType: network.ApplicationJSON,
+			"X-Atlassian-Token": "no-check",
+		},
+	)
+	return resp, err
+}
+
+// FetchAttachmentMetaData pageIDに添付されたファイルのデータを取得する
+func (t *Client) FetchAttachmentMetaData(pageID string) (*AttachmentResults, error) {
+	targetURL := t.baseURL + "/rest/api/content/" + pageID + "/child/attachment"
+	resp, err := t.httpClient.DoRequest(
+		http.MethodGet,
+		targetURL,
+		nil,
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	bin, err := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	var res AttachmentResults
+	err = json.Unmarshal(bin, &res)
+
+	return &res, err
+}
+
+// DownloadAttachmentsFromPage ページに添付してあるファイルをダウンロードする
+func (t *Client) DownloadAttachmentsFromPage(pageID, directory string) error {
+	res, err := t.FetchAttachmentMetaData(pageID)
+	if err != nil {
+		return err
+	}
+
+	os.MkdirAll(directory, os.ModePerm)
+	for _, v := range res.Results {
+		downloadURL := t.baseURL + v.Links.Download
+		path, err := fileio.GetNonExistFileName(filepath.Join(directory, v.Title), 1000)
+		if err != nil {
+			return err
+		}
+		t.DownloadFromURL(downloadURL, path)
+	}
+	return nil
+}
+
+// DownloadFromURL ダウンロードする
+func (t *Client) DownloadFromURL(url, outputFilepath string) error {
+	resp, err := t.httpClient.DoRequest(
+		http.MethodGet,
+		url,
+		nil,
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+	fh, err := os.Create(outputFilepath)
+	if err != nil {
+		return err
+	}
+	defer fh.Close()
+	defer resp.Body.Close()
+	_, err = io.Copy(fh, resp.Body)
+
+	return err
 }
 
 func toJSONReader(mapobj map[string]interface{}) *bytes.Reader {
