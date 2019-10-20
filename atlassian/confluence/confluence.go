@@ -128,6 +128,43 @@ func (t *Client) FetchPageByID(ID string) (*http.Response, error) {
 	return resp, err
 }
 
+// MovePage ページの移動
+func (t *Client) MovePage(srcPageID, dstParentPageID string) (*http.Response, error) {
+	targetURL := t.baseURL + "/rest/api/content/" + srcPageID
+	resp, err := t.FetchPageByID(srcPageID)
+	if err != nil {
+		return nil, err
+	}
+	srcPageMap, err := network.ResponseToMap(resp)
+	if err != nil {
+		return nil, err
+	}
+	newver := int(srcPageMap["version"].(map[string]interface{})["number"].(float64) + 1)
+	putMap := map[string]interface{}{
+		"version": map[string]interface{}{
+			"number": newver,
+		},
+		"type":  srcPageMap["type"],
+		"space": srcPageMap["space"],
+		"title": srcPageMap["title"],
+		"ancestors": []map[string]interface{}{
+			map[string]interface{}{
+				"id": dstParentPageID,
+			},
+		},
+	}
+	reader := toJSONReader(putMap)
+	resp, err = t.httpClient.DoRequest(
+		http.MethodPut,
+		targetURL,
+		reader,
+		map[string]string{
+			network.ContentType: network.ApplicationJSON,
+		},
+	)
+	return resp, err
+}
+
 // AddAttachments ページにファイルを添付する
 func (t *Client) AddAttachments(pageID string, files []string) (*http.Response, error) {
 	var buf bytes.Buffer
