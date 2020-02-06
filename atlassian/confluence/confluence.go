@@ -101,7 +101,10 @@ func (t *Client) FetchPage(
 	targetURL := t.baseURL + "/rest/api/content"
 	qStr := ""
 	for k, v := range query {
-		qStr += url.QueryEscape(k) + "=" + url.QueryEscape(v)
+		if qStr != "" {
+			qStr += "&"
+		}
+		qStr += url.PathEscape(k) + "=" + url.PathEscape(v)
 	}
 	if qStr != "" {
 		targetURL += "?" + qStr
@@ -125,6 +128,18 @@ func (t *Client) FetchPageByID(ID string) (*http.Response, error) {
 		nil,
 		nil,
 	)
+	return resp, err
+}
+
+// FetchContentByTitle タイトルでページのコンテンツを取得
+func (t *Client) FetchContentByTitle(spaceKey, title string) (*http.Response, error) {
+	targetURL := t.baseURL + "/rest/api/content?spaceKey=" + url.PathEscape(spaceKey) + "&title=" + url.PathEscape(title) + "&expand=body.storage"
+	resp, err := t.httpClient.DoRequest(
+		http.MethodGet,
+		targetURL,
+		nil,
+		nil,
+  )
 	return resp, err
 }
 
