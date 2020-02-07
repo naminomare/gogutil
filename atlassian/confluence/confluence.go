@@ -98,19 +98,19 @@ func (t *Client) CreateContent(
 func (t *Client) UpdateContent(
 	contentID string,
 	currentVersion float64,
-	currentType string,
+	newType string,
 	newTitle string,
 	newContent string,
 ) (*http.Response, error) {
 	targetURL := t.baseURL + "/rest/api/content/" + contentID
 	nextVersion := currentVersion + 1
 
-	jsonObj := map[string]interface{}{
+	putMap := map[string]interface{}{
 		"version": map[string]float64{
 			"number": nextVersion,
 		},
 		"title": newTitle,
-		"type":  currentType,
+		"type":  newType,
 		"body": map[string]interface{}{
 			"storage": map[string]string{
 				"value":          newContent,
@@ -118,7 +118,7 @@ func (t *Client) UpdateContent(
 			},
 		},
 	}
-	reader := toJSONReader(jsonObj)
+	reader := toJSONReader(putMap)
 	resp, err := t.httpClient.DoRequest(
 		http.MethodPut,
 		targetURL,
