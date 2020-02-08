@@ -94,6 +94,42 @@ func (t *Client) CreateContent(
 	return resp, err
 }
 
+// UpdateContent コンテンツのアップデートを行う
+func (t *Client) UpdateContent(
+	contentID string,
+	currentVersion float64,
+	newType string,
+	newTitle string,
+	newContent string,
+) (*http.Response, error) {
+	targetURL := t.baseURL + "/rest/api/content/" + contentID
+	nextVersion := currentVersion + 1
+
+	putMap := map[string]interface{}{
+		"version": map[string]float64{
+			"number": nextVersion,
+		},
+		"title": newTitle,
+		"type":  newType,
+		"body": map[string]interface{}{
+			"storage": map[string]string{
+				"value":          newContent,
+				"representation": "storage",
+			},
+		},
+	}
+	reader := toJSONReader(putMap)
+	resp, err := t.httpClient.DoRequest(
+		http.MethodPut,
+		targetURL,
+		reader,
+		map[string]string{
+			network.ContentType: network.ApplicationJSON,
+		},
+	)
+	return resp, err
+}
+
 // FetchPage ページ内容を取得する
 func (t *Client) FetchPage(
 	query map[string]string,
@@ -133,13 +169,13 @@ func (t *Client) FetchPageByID(ID string) (*http.Response, error) {
 
 // FetchContentByTitle タイトルでページのコンテンツを取得
 func (t *Client) FetchContentByTitle(spaceKey, title string) (*http.Response, error) {
-	targetURL := t.baseURL + "/rest/api/content?spaceKey=" + url.PathEscape(spaceKey) + "&title=" + url.PathEscape(title) + "&expand=body.storage"
+	targetURL := t.baseURL + "/rest/api/content?spaceKey=" + url.PathEscape(spaceKey) + "&title=" + url.PathEscape(title) + "&expand=body.storage,version"
 	resp, err := t.httpClient.DoRequest(
 		http.MethodGet,
 		targetURL,
 		nil,
 		nil,
-  )
+	)
 	return resp, err
 }
 
