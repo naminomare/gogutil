@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -11,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/naminomare/gogutil/fileio"
 
@@ -216,6 +218,45 @@ func (t *Client) MovePage(srcPageID, dstParentPageID string) (*http.Response, er
 	return resp, err
 }
 
+// SearchPageByCQL ページを検索する
+func (t *Client) SearchPageByCQL(
+	cql string,
+	start int,
+	limit int,
+) (*http.Response, error) {
+	targetURL := t.baseURL + "/rest/api/search"
+	query := map[string]string{}
+	if cql != "" {
+		query["cql"] = cql
+	}
+	if start != 0 {
+		query["start"] = strconv.Itoa(start)
+	}
+	if limit != 0 {
+		query["limit"] = strconv.Itoa(limit)
+	}
+
+	if len(query) > 0 {
+		qStr := ""
+		for k, v := range query {
+			if qStr != "" {
+				qStr += "&"
+			}
+			qStr += url.PathEscape(k) + "=" + url.PathEscape(v)
+		}
+		targetURL += "?" + qStr
+	}
+	fmt.Println(targetURL)
+
+	resp, err := t.httpClient.DoRequest(
+		http.MethodGet,
+		targetURL,
+		nil,
+		nil,
+	)
+	return resp, err
+}
+
 // AddAttachments ページにファイルを添付する
 func (t *Client) AddAttachments(pageID string, files []string) (*http.Response, error) {
 	var buf bytes.Buffer
@@ -401,18 +442,3 @@ func toJSONReader(mapobj map[string]interface{}) *bytes.Reader {
 
 	return reader
 }
-
-// UpdatePageByID IDでページを更新
-// func (t *Client) UpdatePageByID(ID string) (*http.Response, error) {
-// 	targetURL := t.baseURL + "/content/" + ID
-
-// 	resp, err := t.FetchPageByID(ID)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	respMap, err := network.ResponseToMap(resp)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	respMap[]
-// }
