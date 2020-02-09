@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -15,7 +14,6 @@ import (
 	"strconv"
 
 	"github.com/naminomare/gogutil/fileio"
-
 	"github.com/naminomare/gogutil/network"
 )
 
@@ -246,7 +244,6 @@ func (t *Client) SearchPageByCQL(
 		}
 		targetURL += "?" + qStr
 	}
-	fmt.Println(targetURL)
 
 	resp, err := t.httpClient.DoRequest(
 		http.MethodGet,
