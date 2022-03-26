@@ -11,9 +11,9 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/naminomare/gogutil/fileio"
-
 	"github.com/naminomare/gogutil/network"
 )
 
@@ -94,6 +94,42 @@ func (t *Client) CreateContent(
 	return resp, err
 }
 
+// UpdateContent コンテンツのアップデートを行う
+func (t *Client) UpdateContent(
+	contentID string,
+	currentVersion float64,
+	newType string,
+	newTitle string,
+	newContent string,
+) (*http.Response, error) {
+	targetURL := t.baseURL + "/rest/api/content/" + contentID
+	nextVersion := currentVersion + 1
+
+	putMap := map[string]interface{}{
+		"version": map[string]float64{
+			"number": nextVersion,
+		},
+		"title": newTitle,
+		"type":  newType,
+		"body": map[string]interface{}{
+			"storage": map[string]string{
+				"value":          newContent,
+				"representation": "storage",
+			},
+		},
+	}
+	reader := toJSONReader(putMap)
+	resp, err := t.httpClient.DoRequest(
+		http.MethodPut,
+		targetURL,
+		reader,
+		map[string]string{
+			network.ContentType: network.ApplicationJSON,
+		},
+	)
+	return resp, err
+}
+
 // FetchPage ページ内容を取得する
 func (t *Client) FetchPage(
 	query map[string]string,
@@ -101,7 +137,10 @@ func (t *Client) FetchPage(
 	targetURL := t.baseURL + "/rest/api/content"
 	qStr := ""
 	for k, v := range query {
-		qStr += url.QueryEscape(k) + "=" + url.QueryEscape(v)
+		if qStr != "" {
+			qStr += "&"
+		}
+		qStr += url.PathEscape(k) + "=" + url.PathEscape(v)
 	}
 	if qStr != "" {
 		targetURL += "?" + qStr
@@ -119,6 +158,18 @@ func (t *Client) FetchPage(
 // FetchPageByID IDでページを取得
 func (t *Client) FetchPageByID(ID string) (*http.Response, error) {
 	targetURL := t.baseURL + "/rest/api/content/" + ID
+	resp, err := t.httpClient.DoRequest(
+		http.MethodGet,
+		targetURL,
+		nil,
+		nil,
+	)
+	return resp, err
+}
+
+// FetchContentByTitle タイトルでページのコンテンツを取得
+func (t *Client) FetchContentByTitle(spaceKey, title string) (*http.Response, error) {
+	targetURL := t.baseURL + "/rest/api/content?spaceKey=" + url.PathEscape(spaceKey) + "&title=" + url.PathEscape(title) + "&expand=body.storage,version"
 	resp, err := t.httpClient.DoRequest(
 		http.MethodGet,
 		targetURL,
@@ -161,6 +212,44 @@ func (t *Client) MovePage(srcPageID, dstParentPageID string) (*http.Response, er
 		map[string]string{
 			network.ContentType: network.ApplicationJSON,
 		},
+	)
+	return resp, err
+}
+
+// SearchPageByCQL ページを検索する
+func (t *Client) SearchPageByCQL(
+	cql string,
+	start int,
+	limit int,
+) (*http.Response, error) {
+	targetURL := t.baseURL + "/rest/api/search"
+	query := map[string]string{}
+	if cql != "" {
+		query["cql"] = cql
+	}
+	if start != 0 {
+		query["start"] = strconv.Itoa(start)
+	}
+	if limit != 0 {
+		query["limit"] = strconv.Itoa(limit)
+	}
+
+	if len(query) > 0 {
+		qStr := ""
+		for k, v := range query {
+			if qStr != "" {
+				qStr += "&"
+			}
+			qStr += url.PathEscape(k) + "=" + url.PathEscape(v)
+		}
+		targetURL += "?" + qStr
+	}
+
+	resp, err := t.httpClient.DoRequest(
+		http.MethodGet,
+		targetURL,
+		nil,
+		nil,
 	)
 	return resp, err
 }
@@ -350,18 +439,3 @@ func toJSONReader(mapobj map[string]interface{}) *bytes.Reader {
 
 	return reader
 }
-
-// UpdatePageByID IDでページを更新
-// func (t *Client) UpdatePageByID(ID string) (*http.Response, error) {
-// 	targetURL := t.baseURL + "/content/" + ID
-
-// 	resp, err := t.FetchPageByID(ID)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	respMap, err := network.ResponseToMap(resp)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	respMap[]
-// }
